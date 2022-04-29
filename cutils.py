@@ -40,7 +40,7 @@ def evaluate_on_imagenet(model):
         transforms.Normalize(mean=[0.485, 0.456, 0.406],
                              std=[0.229, 0.224, 0.225])
     ]))
-    subset = np.random.permutation(50000)[:20]
+    subset = np.random.permutation(50000)[:200]
     dataloader = DataLoader(dataset, batch_size=16, sampler=SubsetRandomSampler(subset))
     model.eval()
     with torch.no_grad():

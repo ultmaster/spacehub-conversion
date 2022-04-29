@@ -133,7 +133,7 @@ with fixed_arch(acenas_m1):
 state_dict = match_state_dict(torch.load(input_file, map_location='cpu'), net.state_dict())
 net.load_state_dict(state_dict)
 
-evaluate_on_imagenet(model)
+evaluate_on_imagenet(net)
 
 json.dump(acenas_m1, open('generate/acenas-m1.json', 'w'), indent=2)
 torch.save(state_dict, 'generate/acenas-m1.pth')
