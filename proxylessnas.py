@@ -1,14 +1,7 @@
-import os
-import sys
-
 from pathlib import Path
 import torch
 import pprint
 import json
-
-sys.path.insert(0, os.path.expanduser('~/acenas'))
-
-from searchspace.proxylessnas import ProxylessConfig, ProxylessNAS
 
 from cutils import match_state_dict, evaluate_on_imagenet
 
