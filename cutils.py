@@ -12,7 +12,7 @@ def match_state_dict(current_values: dict, expected_format: dict):
     current_values = dict(current_values)
     expected_format = dict(expected_format)
     result = {}
-    missing_keys = []
+    missing_keys = {}
     print('Length to checkpoint:', len(current_values))
     print('Length of expected state dict:', len(expected_format))
     for k, v in expected_format.items():
@@ -24,11 +24,12 @@ def match_state_dict(current_values: dict, expected_format: dict):
                 not_found = False
                 break
         if not_found:
-            missing_keys.append(k)
+            missing_keys[k] = v.shape
     if current_values or missing_keys:
         print('Remaining values: ')
         pprint.pprint({k: t.shape for k, t in current_values.items()})
-        print('Missing keys: ', missing_keys)
+        print('Missing keys: ')
+        pprint.pprint(missing_keys)
     return result
 
 
