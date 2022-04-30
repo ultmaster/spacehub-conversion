@@ -68,6 +68,10 @@ with fixed_arch(arch):
 official = torch.load('download/mobilenetv3-large-1cd25616.pth')
 official["classifier.0.weight"] = official["classifier.0.weight"].view(1280, 960, 1, 1)
 
+# trans_keys = [x for x in official.keys() if "conv.5.fc.0.weight" in x or "conv.5.fc.2.weight" in x]
+# for k in trans_keys:
+#     official[k] = official[k][:, :, None, None]
+
 # official["blocks.9.0.weight"] = official["blocks.9.0.weight"].view(1280, 960)
 
 state_dict = match_state_dict(
