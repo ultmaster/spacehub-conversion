@@ -9,19 +9,19 @@ from nni.retiarii import fixed_arch
 import nni.retiarii.hub.pytorch as searchspace
 
 
-def convert(sample, last_width):
-    res = {}
+def convert(sample):
+    res = {'stem_ks': 3}
     stage_idx = -1
     local_idx = -1
     for i in range(len(sample)):
         if i == 0 or sample[i][2] != sample[i - 1][2]:
             stage_idx += 1
-            res[f's{stage_idx}_width'] = sample[i][2]
+            res[f's{stage_idx}_width_mult'] = 1.0
             local_idx = 0
         if 1 <= stage_idx <= 5:
             res[f's{stage_idx}_depth'] = sum(sample[k][2] == sample[i][2] for k in range(len(sample)))
         if i == 0:
-            res[f's{stage_idx}_i{local_idx}'] = 3
+            # res[f's{stage_idx}_i{local_idx}'] = 3
             res[f's{stage_idx}_i{local_idx}_ks'] = sample[0][0]
         else:
             res[f's{stage_idx}_i{local_idx}_exp'] = sample[i][1]
@@ -29,8 +29,8 @@ def convert(sample, last_width):
             if stage_idx in [2, 4, 5]:
                 res[f's{stage_idx}_i{local_idx}_se'] = 'se' if sample[i][3] else 'identity'
         local_idx += 1
-    res['s6_width'] = res['s5_width'] * res['s5_i0_exp']
-    res['s7_width'] = last_width
+    res['s6_width_mult'] = 1.0
+    res['s7_width_mult'] = 1.0
     return res
 
 
@@ -51,10 +51,10 @@ arch = convert([
     [5,   6, 160, 1, 1, 2],  # 2
     [5,   6, 160, 1, 1, 1],
     [5,   6, 160, 1, 1, 1]
-], 1280)
+])
 
 kwargs = dict(
-    base_widths=(16, 24, 40, 80, 112, 160, 960, 1280),
+    base_widths=(16, 16, 24, 40, 80, 112, 160, 960, 1280),
     expand_ratios=(1.0, 2.0, 2.3, 2.5, 3., 4., 6.),
     bn_eps=1e-5,
     bn_momentum=0.1,
@@ -82,9 +82,7 @@ state_dict = match_state_dict(
 net.load_state_dict(state_dict)
 net.eval()
 
-# TODO: bicubic interpolation
-
-evaluate_on_imagenet(net)
+evaluate_on_imagenet(net, 'bicubic')
 
 json.dump(arch, open(f'generate/mobilenetv3-large-100.json', 'w'), indent=2)
 json.dump(kwargs, open(f'generate/mobilenetv3-large-100.init.json', 'w'), indent=2)

@@ -8,15 +8,40 @@ from cutils import match_state_dict, evaluate_on_imagenet
 from nni.retiarii import fixed_arch
 import nni.retiarii.hub.pytorch as searchspace
 
+from nni.retiarii.hub.pytorch.proxylessnas import make_divisible
 
-def convert(sample, last_width):
+
+def convert(sample):
     from timm.models.efficientnet_builder import decode_arch_def
 
-    print(decode_arch_def(sample))
+    decoded = decode_arch_def(sample)
+    decoded = decoded[:5] + [[], decoded[5]]
+    print(decoded)
+    channels = [16]
+
+    res = {'stem_ks': 3}
+    for stage_idx in range(7):
+        res[f's{stage_idx}_width_mult'] = 1.0
+        channels.append(decoded[stage_idx][0]['out_chs'] if len(decoded[stage_idx]) > 0 else channels[-1])
+        if 0 <= stage_idx <= 5:
+            if stage_idx > 0:
+                res[f's{stage_idx}_depth'] = len(decoded[stage_idx])
+            if len(decoded[stage_idx]) > 0:
+                for local_idx in range(len(decoded[stage_idx])):
+                    res[f's{stage_idx}_i{local_idx}_se'] = 'se' if decoded[stage_idx][0].get('se_ratio') else 'identity'
+                    s = decoded[stage_idx][local_idx]
+                    if 'exp_ratio' in s:
+                        res[f's{stage_idx}_i{local_idx}_exp'] = s['exp_ratio']
+                    if 'dw_kernel_size' in s:
+                        res[f's{stage_idx}_i{local_idx}_ks'] = s['dw_kernel_size']
+    res['s7_width_mult'] = 1.0
+
+    channels.append(1024)
+    return res, channels
 
 
 
-arch = convert([
+arch, channels = convert([
     # stage 0, 112x112 in
     ['ds_r1_k3_s2_e1_c16_se0.25_nre'],  # relu
     # stage 1, 56x56 in
@@ -29,40 +54,40 @@ arch = convert([
     ['ir_r3_k5_s2_e6_c96_se0.25'],  # hard-swish
     # stage 6, 7x7 in
     ['cn_r1_k1_s1_c576'],  # hard-swish
-], 1024)
+])
 
-# kwargs = dict(
-#     base_widths=(16, 24, 40, 80, 112, 160, 960, 1280),
-#     expand_ratios=(1.0, 2.0, 2.3, 2.5, 3., 4., 6.),
-#     bn_eps=1e-5,
-#     bn_momentum=0.1,
-#     # se_before_activation=True
-# )
+print(arch, channels)
 
-# with fixed_arch(arch):
-#     net = searchspace.MobileNetV3Space(**kwargs)
+channels = [make_divisible(c * 0.5, 8) if 0 < i < 8 else c for i, c in enumerate(channels)]
+print(channels)
+
+ratios = sorted(set([v for k, v in arch.items() if k.endswith('_exp')]))
+print(ratios)
+
+kwargs = dict(
+    base_widths=channels,
+    expand_ratios=tuple(ratios),
+    bn_eps=1e-5,
+    bn_momentum=0.1,
+    squeeze_excite=['optional'] * 6,
+    depth_range=(0, 2),
+)
+
+with fixed_arch(arch):
+    net = searchspace.MobileNetV3Space(**kwargs)
 
 
-# official = torch.load('download/mobilenetv3_large_100_ra-f55367f5.pth')
-# # official["classifier.0.weight"] = official["classifier.0.weight"].view(1280, 960, 1, 1)
+official = torch.load('download/mobilenetv3_small_050_lambc-4b7bbe87.pth')
+# official["classifier.0.weight"] = official["classifier.0.weight"].view(1280, 960, 1, 1)
 
-# # trans_keys = [x for x in official.keys() if "conv.5.fc.0.weight" in x or "conv.5.fc.2.weight" in x]
-# # for k in trans_keys:
-# #     official[k] = official[k][:, :, None, None]
+state_dict = match_state_dict(
+    official,
+    dict(net.state_dict())
+)
+net.load_state_dict(state_dict)
+net.eval()
 
-# # official["blocks.9.0.weight"] = official["blocks.9.0.weight"].view(1280, 960)
-
-# state_dict = match_state_dict(
-#     official,
-#     dict(net.state_dict())
-# )
-# # print(list(net.state_dict().keys()))
-# net.load_state_dict(state_dict)
-# net.eval()
-
-# # TODO: bicubic interpolation
-
-# evaluate_on_imagenet(net)
+evaluate_on_imagenet(net)
 
 # json.dump(arch, open(f'generate/mobilenetv3-small-050.json', 'w'), indent=2)
 # json.dump(kwargs, open(f'generate/mobilenetv3-small-050.init.json', 'w'), indent=2)
