@@ -17,19 +17,18 @@ def convert(sample):
     from timm.models.efficientnet_builder import decode_arch_def
 
     decoded = decode_arch_def(sample)
-    decoded = decoded[:5] + [[], decoded[5]]
     print(decoded)
     channels = [16]
     stride = [2]
     activation = ['hswish']
 
     res = {'stem_ks': 3}
-    for stage_idx in range(7):
+    for stage_idx in range(6):
         res[f's{stage_idx}_width_mult'] = 1.0
         channels.append(decoded[stage_idx][0]['out_chs'] if len(decoded[stage_idx]) > 0 else channels[-1])
         stride.append(decoded[stage_idx][0]['stride'] if len(decoded[stage_idx]) > 0 else 1)
         activation.append('relu' if len(decoded[stage_idx]) > 0 and decoded[stage_idx][0]['act_layer'] is not None else 'hswish')
-        if 0 <= stage_idx <= 5:
+        if 0 <= stage_idx <= 4:
             if stage_idx > 0:
                 res[f's{stage_idx}_depth'] = len(decoded[stage_idx])
             if len(decoded[stage_idx]) > 0:
@@ -40,7 +39,7 @@ def convert(sample):
                         res[f's{stage_idx}_i{local_idx}_exp'] = s['exp_ratio']
                     if 'dw_kernel_size' in s:
                         res[f's{stage_idx}_i{local_idx}_ks'] = s['dw_kernel_size']
-    res['s7_width_mult'] = 1.0
+    res['s6_width_mult'] = 1.0
     stride.append(1)
     activation.append('hswish')
     channels.append(1024)
@@ -65,7 +64,7 @@ arch, channels, stride, activation = convert([
 
 print(arch, channels)
 
-channels = [make_divisible(c * 0.5, 8) if 0 < i < 8 else c for i, c in enumerate(channels)]
+channels = [make_divisible(c * 0.5, 8) if 0 < i < 7 else c for i, c in enumerate(channels)]
 print(channels)
 
 ratios = sorted(set([v for k, v in arch.items() if k.endswith('_exp')]))
@@ -76,10 +75,10 @@ kwargs = dict(
     expand_ratios=tuple(ratios),
     bn_eps=1e-5,
     bn_momentum=0.1,
-    squeeze_excite=['optional'] * 6,
+    squeeze_excite=['optional'] * 5,
     activation=activation,
     stride=stride,
-    depth_range=(0, 2),
+    depth_range=(1, 2),
 )
 
 with fixed_arch(arch):
@@ -101,13 +100,13 @@ model_ref.load_state_dict(official)
 model_ref.eval()
 
 x = torch.randn(1, 16, 112, 112)
-import pdb; pdb.set_trace()
+# import pdb; pdb.set_trace()
 
-print((model_ref.blocks[0](x) - net.blocks[0](x)).abs().sum())
+# print((model_ref.blocks[0](x) - net.blocks[0](x)).abs().sum())
 
 
-# evaluate_on_imagenet(net)
+evaluate_on_imagenet(net)
 
-# json.dump(arch, open(f'generate/mobilenetv3-small-050.json', 'w'), indent=2)
-# json.dump(kwargs, open(f'generate/mobilenetv3-small-050.init.json', 'w'), indent=2)
-# torch.save(state_dict, f'generate/mobilenetv3-small-050.pth')
+json.dump(arch, open(f'generate/mobilenetv3-small-050.json', 'w'), indent=2)
+json.dump(kwargs, open(f'generate/mobilenetv3-small-050.init.json', 'w'), indent=2)
+torch.save(state_dict, f'generate/mobilenetv3-small-050.pth')
