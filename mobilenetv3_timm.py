@@ -82,7 +82,7 @@ state_dict = match_state_dict(
 net.load_state_dict(state_dict)
 net.eval()
 
-
+# TODO: bicubic interpolation
 
 evaluate_on_imagenet(net)
 
