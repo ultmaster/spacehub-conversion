@@ -1,21 +1,34 @@
-def convert(decoded):
+from pathlib import Path
+import torch
+import pprint
+import json
+
+from cutils import match_state_dict, evaluate_on_imagenet
+
+from nni.retiarii import fixed_arch
+import nni.retiarii.hub.pytorch as searchspace
+
+
+
+def convert(sample):
+    from timm.models.efficientnet_builder import decode_arch_def
+
+    decoded = decode_arch_def(sample)
+    print(decoded)
     channels = [16]
 
     res = {'stem_ks': 3}
     for stage_idx in range(7):
-        res[f's{stage_idx}_width_mult'] = 1.0
         channels.append(decoded[stage_idx][0]['out_chs'] if len(decoded[stage_idx]) > 0 else channels[-1])
         if 0 <= stage_idx <= 5:
             res[f's{stage_idx}_depth'] = len(decoded[stage_idx])
             if res[f's{stage_idx}_depth'] > 0:
                 for local_idx in range(len(decoded[stage_idx])):
-                    res[f's{stage_idx}_i{local_idx}_se'] = 'se' if decoded[stage_idx][0].get('se_ratio') else 'identity'
                     s = decoded[stage_idx][local_idx]
                     if 'exp_ratio' in s:
                         res[f's{stage_idx}_i{local_idx}_exp'] = s['exp_ratio']
                     if 'dw_kernel_size' in s:
                         res[f's{stage_idx}_i{local_idx}_ks'] = s['dw_kernel_size']
-    res['s7_width_mult'] = 1.0
 
     channels.append(1280)
     return res, channels
@@ -56,7 +69,7 @@ def convert_outer(arch_list):
                 new_layer.append(block_arch)
             new_arch.append(new_layer)
 
-    print(new_arch)
+    return convert(new_arch)
 
 
 config_481 = [
@@ -70,4 +83,42 @@ config_481 = [
 ]
 
 
-convert_outer(config_481)
+arch, channels = convert_outer(config_481)
+print(arch, channels)
+
+
+kwargs = dict(
+    base_widths=channels,
+    width_multipliers=1.0,
+    expand_ratios=[4., 6.],
+    bn_eps=1e-5,
+    bn_momentum=0.1,
+    squeeze_excite=['force'] * 6,
+    activation=['swish'] * 9,
+)
+
+with fixed_arch(arch):
+    net = searchspace.MobileNetV3Space(**kwargs)
+
+
+official = torch.load('/mnt/data/nni-checkpoints/spacehub/481.pth.tar', map_location='cpu')['state_dict']
+# official["classifier.0.weight"] = official["classifier.0.weight"].view(1280, 960, 1, 1)
+
+state_dict = match_state_dict(
+    official,
+    dict(net.state_dict())
+)
+net.load_state_dict(state_dict)
+net.eval()
+
+# x = torch.randn(1, 16, 112, 112)
+# import pdb; pdb.set_trace()
+
+# print((model_ref.blocks[0](x) - net.blocks[0](x)).abs().sum())
+
+
+evaluate_on_imagenet(net)
+
+json.dump(arch, open(f'generate/mobilenetv3-cream-481.json', 'w'), indent=2)
+json.dump(kwargs, open(f'generate/mobilenetv3-cream-481.init.json', 'w'), indent=2)
+torch.save(state_dict, f'generate/mobilenetv3-cream-481.pth')

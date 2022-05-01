@@ -24,7 +24,6 @@ def convert(sample):
 
     res = {'stem_ks': 3}
     for stage_idx in range(6):
-        res[f's{stage_idx}_width_mult'] = 1.0
         channels.append(decoded[stage_idx][0]['out_chs'] if len(decoded[stage_idx]) > 0 else channels[-1])
         stride.append(decoded[stage_idx][0]['stride'] if len(decoded[stage_idx]) > 0 else 1)
         activation.append('relu' if len(decoded[stage_idx]) > 0 and decoded[stage_idx][0]['act_layer'] is not None else 'hswish')
@@ -39,7 +38,6 @@ def convert(sample):
                         res[f's{stage_idx}_i{local_idx}_exp'] = s['exp_ratio']
                     if 'dw_kernel_size' in s:
                         res[f's{stage_idx}_i{local_idx}_ks'] = s['dw_kernel_size']
-    res['s6_width_mult'] = 1.0
     stride.append(1)
     activation.append('hswish')
     channels.append(1024)
@@ -72,6 +70,7 @@ print(ratios)
 
 kwargs = dict(
     base_widths=channels,
+    width_multipliers=1.0,
     expand_ratios=tuple(ratios),
     bn_eps=1e-5,
     bn_momentum=0.1,
