@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 import tqdm
@@ -48,7 +50,7 @@ class ToBGRTensor(object):
 
 
 
-def evaluate_on_imagenet(model, preprocessing=None):
+def evaluate_on_imagenet(model, preprocessing=None, gpu=False, full=False, batch_size=16, num_workers=0):
     if preprocessing is None:
         transform = transforms.Compose([
             transforms.Resize(256),
@@ -71,14 +73,22 @@ def evaluate_on_imagenet(model, preprocessing=None):
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                 std=[0.229, 0.224, 0.225])
         ])
-    dataset = ImageNet('/mnt/data/imagenet', 'val', transform=transform)
-    subset = np.random.permutation(50000)[:200]
-    dataloader = DataLoader(dataset, batch_size=16, sampler=SubsetRandomSampler(subset))
+    if os.path.exists('/mnt/data/imagenet'):
+        directory = '/mnt/data/imagenet'
+    else:
+        directory = '/sda/v-yugzh/imagenet'
+    dataset = ImageNet(directory, 'val', transform=transform)
+    subset = np.random.permutation(50000)
+    if not full:
+        subset = subset[:200]
+    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, sampler=SubsetRandomSampler(subset))
     model.eval()
     with torch.no_grad():
         correct = total = 0
         pbar = tqdm.tqdm(dataloader, desc='Evaluating on ImageNet')
         for inputs, targets in pbar:
+            if gpu:
+                inputs, targets = inputs.cuda(), targets.cuda()
             logits = model(inputs)
             _, predict = torch.max(logits, 1)
             correct += (predict == targets).cpu().sum().item()

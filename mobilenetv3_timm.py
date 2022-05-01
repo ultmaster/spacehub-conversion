@@ -16,7 +16,7 @@ def convert(sample):
     for i in range(len(sample)):
         if i == 0 or sample[i][2] != sample[i - 1][2]:
             stage_idx += 1
-            res[f's{stage_idx}_width_mult'] = 1.0
+            # res[f's{stage_idx}_width_mult'] = 1.0
             local_idx = 0
         if 1 <= stage_idx <= 5:
             res[f's{stage_idx}_depth'] = sum(sample[k][2] == sample[i][2] for k in range(len(sample)))
@@ -26,11 +26,11 @@ def convert(sample):
         else:
             res[f's{stage_idx}_i{local_idx}_exp'] = sample[i][1]
             res[f's{stage_idx}_i{local_idx}_ks'] = sample[i][0]
-            if stage_idx in [2, 4, 5]:
-                res[f's{stage_idx}_i{local_idx}_se'] = 'se' if sample[i][3] else 'identity'
+            # if stage_idx in [2, 4, 5]:
+            #     res[f's{stage_idx}_i{local_idx}_se'] = 'se' if sample[i][3] else 'identity'
         local_idx += 1
-    res['s6_width_mult'] = 1.0
-    res['s7_width_mult'] = 1.0
+    # res['s6_width_mult'] = 1.0
+    # res['s7_width_mult'] = 1.0
     return res
 
 
@@ -58,6 +58,8 @@ kwargs = dict(
     expand_ratios=(1.0, 2.0, 2.3, 2.5, 3., 4., 6.),
     bn_eps=1e-5,
     bn_momentum=0.1,
+    squeeze_excite=['none', 'none', 'force', 'none', 'force', 'force'],
+    width_multipliers=1.,
     # se_before_activation=True
 )
 

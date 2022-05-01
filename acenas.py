@@ -6,7 +6,7 @@ import torch
 import pprint
 import json
 
-sys.path.insert(0, os.path.expanduser('~/acenas'))
+sys.path.insert(0, os.path.expanduser('~/AceNAS'))
 
 from searchspace.proxylessnas import ProxylessConfig, ProxylessNAS
 
@@ -17,8 +17,21 @@ import nni.retiarii.hub.pytorch as searchspace
 
 
 # top-1 75.254 latency: 84.60
-input_file = Path("/mnt/data/nni-checkpoints/spacehub/acenas-m1.pth.tar")
-index_string = "0:0:0:0:1:0:0:0:0:0:1:1:1:1:1:0:1:0:0:0:0:0:1:1:1:1:0:0:0:0:1:0:0:0:1:1:0:0:2:0:1:0:2:1:0:0:1:0:0:1:0:2:0:0:0:2:1:0:2:1:0:2:0:0:2:0:0:0:2:1:0:0:0"
+
+ACENAS_MOBILE = {
+    # top-1 75.254 latency: 84.60
+    'acenas-m1': '0:0:0:0:1:0:0:0:0:0:1:1:1:1:1:0:1:0:0:0:0:0:1:1:1:1:0:0:0:0:1:0:0:0:1:1:0:0:2:0:1:0:2:1:0:0:1:0:0:1:0:2:0:0:0:2:1:0:2:1:0:2:0:0:2:0:0:0:2:1:0:0:0',
+    # top-1 75.07 latency: 84.59
+    'acenas-m2': '0:0:0:1:0:0:2:0:1:0:0:1:2:1:1:0:0:1:0:0:0:0:2:0:1:1:0:0:0:2:1:0:2:1:1:1:1:0:2:0:1:0:1:1:0:1:0:0:1:1:0:0:1:0:0:2:1:0:1:1:0:1:0:0:1:1:0:0:2:1:0:0:0',
+    # top-1 75.11 latency: 84.92
+    'acenas-m3': '0:0:0:0:0:0:0:1:0:1:1:1:0:0:1:0:1:0:0:0:0:1:1:0:1:0:0:0:0:1:1:0:2:1:0:0:1:0:2:1:1:0:2:1:0:2:0:0:2:0:0:1:0:0:0:2:1:0:2:0:0:2:1:0:0:0:0:0:1:1:0:0:0'
+}
+
+
+subtype = 'm2'
+
+input_file = Path(f"~/AceNAS/data/checkpoints/acenas-{subtype}.pth.tar").expanduser()
+index_string = ACENAS_MOBILE['acenas-' + subtype]
 
 def tf_indices_to_pytorch_spec(tf_indices, pytorch_space):
     tf_indices = list(map(int, tf_indices.split(':')))
@@ -83,30 +96,7 @@ model = create_proxylessnas_model(index_string)
 model.load_state_dict(torch.load(input_file, map_location='cpu'))
 
 
-acenas_style_sample = {
-    's1b1_i32o16': 'k3e1',
-    's2b1_i16o32': 'k3e6',
-    's2b2_i32o32': 'k3e3',
-    's2b3_i32o32': 'skip',
-    's2b4_i32o32': 'skip',
-    's3b1_i32o40': 'k5e3',
-    's3b2_i40o40': 'k3e3',
-    's3b3_i40o40': 'skip',
-    's3b4_i40o40': 'k5e3',
-    's4b1_i40o80': 'k3e6',
-    's4b2_i80o80': 'skip',
-    's4b3_i80o80': 'k5e3',
-    's4b4_i80o80': 'skip',
-    's5b1_i80o96': 'k7e6',
-    's5b2_i96o96': 'k3e6',
-    's5b3_i96o96': 'k3e6',
-    's5b4_i96o96': 'k7e3',
-    's6b1_i96o192': 'k7e6',
-    's6b2_i192o192': 'k7e6',
-    's6b3_i192o192': 'k7e3',
-    's6b4_i192o192': 'k7e3',
-    's7b1_i192o320': 'k7e6'
-}
+acenas_style_sample = tf_indices_to_pytorch_spec(index_string, model.searchspace())
 
 def convert(sample):
     res = {}
@@ -135,8 +125,8 @@ net.load_state_dict(state_dict)
 
 evaluate_on_imagenet(net)
 
-json.dump(acenas_m1, open('generate/acenas-m1.json', 'w'), indent=2)
-torch.save(state_dict, 'generate/acenas-m1.pth')
+json.dump(acenas_m1, open(f'generate/acenas-{subtype}.json', 'w'), indent=2)
+torch.save(state_dict, f'generate/acenas-{subtype}.pth')
 
 # template = {
 #     's2_depth': 2,
