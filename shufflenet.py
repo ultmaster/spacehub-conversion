@@ -12,7 +12,7 @@ from nni.retiarii import fixed_arch
 import nni.retiarii.hub.pytorch as searchspace
 
 
-input_file = Path("/mnt/data/nni-checkpoints/spacehub/bnps-checkpoint-300000.pth.tar")
+input_file = Path("download/bnps-checkpoint-300000.pth.tar")
 
 
 index_string = (2, 1, 0, 1, 2, 0, 2, 0, 2, 0, 2, 3, 0, 0, 0, 0, 3, 2, 3, 3)
@@ -36,7 +36,10 @@ data = match_state_dict(data, model.state_dict())
 model.load_state_dict(data)
 model.eval()
 
-evaluate_on_imagenet(model, 'spos')
+
+# evaluate_on_imagenet(model, 'spos')
+# model.cuda()
+# evaluate_on_imagenet(model, 'spos', gpu=True, full=True, batch_size=256, num_workers=12)
 
 json.dump(arch, open(f'generate/shufflenet.json', 'w'), indent=2)
 json.dump({"affine": True}, open(f'generate/shufflenet.init.json', 'w'), indent=2)
