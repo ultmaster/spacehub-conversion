@@ -55,7 +55,7 @@ with fixed_arch(arch):
 
 # import pdb; pdb.set_trace()
 
-data = torch.load('/mnt/data/nni-checkpoints/spacehub/cifar10_model.pt', map_location='cpu')
+data = torch.load('download/cifar10_model.pt', map_location='cpu')
 for k in [k for k in data.keys() if k.startswith("auxiliary_head.")]:
     data.pop(k)
 state_dict = match_state_dict(data, net.state_dict())

@@ -128,9 +128,9 @@ for model_type in [14, 43, 114, 287, 481, 604]:
     net.load_state_dict(state_dict)
     net.eval()
 
-    net.cuda()
-    evaluate_on_imagenet(net, f'not224-{image_size}', gpu=True, full=True, batch_size=256, num_workers=12)
+    # net.cuda()
+    # evaluate_on_imagenet(net, f'not224-{image_size}', gpu=True, full=True, batch_size=256, num_workers=12)
 
-# json.dump(arch, open(f'generate/mobilenetv3-cream-481.json', 'w'), indent=2)
-# json.dump(kwargs, open(f'generate/mobilenetv3-cream-481.init.json', 'w'), indent=2)
-# torch.save(state_dict, f'generate/mobilenetv3-cream-481.pth')
+    json.dump(arch, open(f'generate/mobilenetv3-cream-{model_type:03d}.json', 'w'), indent=2)
+    json.dump(kwargs, open(f'generate/mobilenetv3-cream-{model_type:03d}.init.json', 'w'), indent=2)
+    torch.save(state_dict, f'generate/mobilenetv3-cream-{model_type:03d}.pth')

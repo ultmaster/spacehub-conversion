@@ -106,22 +106,28 @@ def evaluate_on_imagenet(model, preprocessing=None, gpu=False, full=False, batch
     print('Overall accuracy (top-1):', correct / total * 100)
 
 
-def evaluate_on_cifar10(model):
+def evaluate_on_cifar10(model, gpu=False, full=False, batch_size=16, num_workers=0):
     CIFAR_MEAN = [0.49139968, 0.48215827, 0.44653124]
     CIFAR_STD = [0.24703233, 0.24348505, 0.26158768]
 
-    dataset = CIFAR10(root='/mnt/data/cifar10', train=False, download=True, transform=transforms.Compose([
+    dataset = CIFAR10(root='download/cifar10', train=False, download=True, transform=transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
     ]))
 
-    subset = np.random.permutation(10000)[:200]
-    dataloader = DataLoader(dataset, batch_size=16, sampler=SubsetRandomSampler(subset))
+    subset = np.random.permutation(10000)
+
+    if not full:
+        subset = subset[:200]
+
+    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, sampler=SubsetRandomSampler(subset))
     model.eval()
     with torch.no_grad():
         correct = total = 0
         pbar = tqdm.tqdm(dataloader, desc='Evaluating on CIFAR10')
         for inputs, targets in pbar:
+            if gpu:
+                inputs, targets = inputs.cuda(), targets.cuda()
             logits = model(inputs)
             _, predict = torch.max(logits, 1)
             correct += (predict == targets).cpu().sum().item()
