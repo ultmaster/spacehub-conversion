@@ -14,7 +14,7 @@ def convert(sample):
     from timm.models.efficientnet_builder import decode_arch_def
 
     decoded = decode_arch_def(sample)
-    print(decoded)
+    # print(decoded)
     channels = [16]
 
     res = {'stem_ks': 3}
@@ -72,53 +72,65 @@ def convert_outer(arch_list):
     return convert(new_arch)
 
 
-config_481 = [
-    [0],
-    [3, 4, 3, 1],
-    [3, 2, 3, 0],
-    [3, 3, 3, 1, 1],
-    [3, 3, 3, 3],
-    [3, 3, 3, 3],
-    [0]
-]
+for model_type in [14, 43, 114, 287, 481, 604]:
+    if model_type == 481:
+        arch_list = [
+            [0], [
+                3, 4, 3, 1], [
+                3, 2, 3, 0], [
+                3, 3, 3, 1, 1], [
+                    3, 3, 3, 3], [
+                        3, 3, 3, 3], [0]]
+        image_size = 224
+    elif model_type == 43:
+        arch_list = [[0], [3], [3, 1], [3, 1], [3, 3, 3], [3, 3], [0]]
+        image_size = 96
+    elif model_type == 14:
+        arch_list = [[0], [3], [3, 3], [3, 3], [3], [3], [0]]
+        image_size = 64
+    elif model_type == 114:
+        arch_list = [[0], [3], [3, 3], [3, 3], [3, 3, 3], [3, 3], [0]]
+        image_size = 160
+    elif model_type == 287:
+        arch_list = [[0], [3], [3, 3], [3, 1, 3], [3, 3, 3, 3], [3, 3, 3], [0]]
+        image_size = 224
+    elif model_type == 604:
+        arch_list = [[0], [3, 3, 2, 3, 3], [3, 2, 3, 2, 3], [3, 2, 3, 2, 3],
+                     [3, 3, 2, 2, 3, 3], [3, 3, 2, 3, 3, 3], [0]]
+        image_size = 224
+
+    arch, channels = convert_outer(arch_list)
+    print(arch, channels)
+
+    kwargs = dict(
+        base_widths=channels,
+        width_multipliers=1.0,
+        expand_ratios=[4., 6.],
+        bn_eps=1e-5,
+        bn_momentum=0.1,
+        squeeze_excite=['force'] * 6,
+        activation=['swish'] * 9,
+    )
+
+    with fixed_arch(arch):
+        net = searchspace.MobileNetV3Space(**kwargs)
 
 
-arch, channels = convert_outer(config_481)
-print(arch, channels)
+    official = torch.load(f'download/cream/{model_type}.pth.tar', map_location='cpu')
+    # import pdb; pdb.set_trace()
+    
+    official = official['state_dict_ema']
 
+    state_dict = match_state_dict(
+        official,
+        dict(net.state_dict())
+    )
+    net.load_state_dict(state_dict)
+    net.eval()
 
-kwargs = dict(
-    base_widths=channels,
-    width_multipliers=1.0,
-    expand_ratios=[4., 6.],
-    bn_eps=1e-5,
-    bn_momentum=0.1,
-    squeeze_excite=['force'] * 6,
-    activation=['swish'] * 9,
-)
+    net.cuda()
+    evaluate_on_imagenet(net, f'not224-{image_size}', gpu=True, full=True, batch_size=256, num_workers=12)
 
-with fixed_arch(arch):
-    net = searchspace.MobileNetV3Space(**kwargs)
-
-
-official = torch.load('/mnt/data/nni-checkpoints/spacehub/481.pth.tar', map_location='cpu')['state_dict']
-# official["classifier.0.weight"] = official["classifier.0.weight"].view(1280, 960, 1, 1)
-
-state_dict = match_state_dict(
-    official,
-    dict(net.state_dict())
-)
-net.load_state_dict(state_dict)
-net.eval()
-
-# x = torch.randn(1, 16, 112, 112)
-# import pdb; pdb.set_trace()
-
-# print((model_ref.blocks[0](x) - net.blocks[0](x)).abs().sum())
-
-
-evaluate_on_imagenet(net)
-
-json.dump(arch, open(f'generate/mobilenetv3-cream-481.json', 'w'), indent=2)
-json.dump(kwargs, open(f'generate/mobilenetv3-cream-481.init.json', 'w'), indent=2)
-torch.save(state_dict, f'generate/mobilenetv3-cream-481.pth')
+# json.dump(arch, open(f'generate/mobilenetv3-cream-481.json', 'w'), indent=2)
+# json.dump(kwargs, open(f'generate/mobilenetv3-cream-481.init.json', 'w'), indent=2)
+# torch.save(state_dict, f'generate/mobilenetv3-cream-481.pth')

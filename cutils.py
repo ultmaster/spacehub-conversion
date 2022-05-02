@@ -65,6 +65,15 @@ def evaluate_on_imagenet(model, preprocessing=None, gpu=False, full=False, batch
             transforms.CenterCrop(224),
             ToBGRTensor(),
         ])
+    elif preprocessing.startswith('not224'):
+        image_size = int(preprocessing.split('-')[-1])
+        transform = transforms.Compose([
+            transforms.Resize(int(image_size / 0.875)),
+            transforms.CenterCrop(image_size),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                std=[0.229, 0.224, 0.225])
+        ])
     elif preprocessing == 'bicubic':
         transform = transforms.Compose([
             transforms.Resize(256, interpolation=transforms.InterpolationMode.BICUBIC),
